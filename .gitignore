@@ -6,3 +6,4 @@ vc140.idb
 /bin
 CppProperties.json
 subprojects/zlib/*
+compile_commands.json

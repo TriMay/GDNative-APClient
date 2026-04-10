@@ -1,13 +1,28 @@
 #include "godotapclient.h"
+#include "apclient.hpp"
 
 using namespace godot;
+
+
 
 void GodotAPClient::_register_methods() {
     register_method("connect_to_host", &GodotAPClient::connect_to_host);
     register_method("poll", &GodotAPClient::poll);
     register_method("connect_slot", &GodotAPClient::connect_slot);
+
+    register_method("get_player_alias", &GodotAPClient::get_player_alias);
+    register_method("get_player_game", &GodotAPClient::get_player_game);
+    register_method("get_game", &GodotAPClient::get_game);
+    register_method("get_location_name", &GodotAPClient::get_location_name);
+    register_method("get_location_id", &GodotAPClient::get_location_id);
+    register_method("get_item_name", &GodotAPClient::get_item_name);
+    register_method("get_item_id", &GodotAPClient::get_item_id);
+    register_method("slot_concerns_self", &GodotAPClient::slot_concerns_self);
+
     register_method("send_say", &GodotAPClient::send_say);
     register_method("send_location_checks", &GodotAPClient::send_location_checks);
+    register_method("send_location_scouts", &GodotAPClient::send_location_scouts);
+
 
     register_signal<GodotAPClient>("socket_connected");
     register_signal<GodotAPClient>("socked_disconnected");
@@ -40,6 +55,8 @@ GodotAPClient::GodotAPClient() {
 GodotAPClient::~GodotAPClient() {
     // add your cleanup here
 }
+
+
 
 void GodotAPClient::_init() {
     // initialize any variables here
@@ -92,7 +109,7 @@ void GodotAPClient::connect_to_host(String game, String uri) {
         for (int i = 0; i < reasons_list.size(); i++) {
             std::string str = *iter;
 
-            reasons_array.append(godot::String(str.data()));
+            reasons_array.append(godot::String(str.c_str()));
 
             ++iter;
         }
@@ -188,10 +205,75 @@ void GodotAPClient::connect_slot(const String& name, const String& password, int
 //}
 
 
+String GodotAPClient::get_player_alias(int slot) {
+    if (!ap) { return String("Unknown"); }
+
+    std::string result = ap->get_player_alias(slot);
+    return String(result.data());
+}
+
+
+
+const String GodotAPClient::get_player_game(int player) {
+    if (!ap) { return String(""); }
+
+    std::string result = ap->get_player_game(player);
+    return String(result.data());
+}
+
+
+
+const String GodotAPClient::get_game() {
+    if (!ap) { return String(""); }
+
+    std::string result = ap->get_game();
+    return String(result.data());
+}
+
+
+
+String GodotAPClient::get_location_name(int64_t code, const String& game) {
+    if (!ap) { return String("Unknown"); }
+
+    std::string result = ap->get_location_name(code, game.utf8().get_data());
+    return String(result.data());
+}
+
+
+
+int64_t GodotAPClient::get_location_id(const String& name) const {
+    if (!ap) { return APClient::INVALID_NAME_ID; }
+    return ap->get_location_id(name.utf8().get_data());
+}
+
+
+
+String GodotAPClient::get_item_name(int64_t code, const String& game) {
+    if (!ap) { return String("Unknown"); }
+
+    std::string result = ap->get_item_name(code, game.utf8().get_data());
+    return String  //String(result.c_str());
+}
+
+
+
+int64_t GodotAPClient::get_item_id(const String& name) const {
+    if (!ap) { return APClient::INVALID_NAME_ID; }
+    return ap->get_item_id(name.utf8().get_data());
+}
+
+
+
+bool GodotAPClient::slot_concerns_self(int slot) const {
+    if (!ap) { return false; }
+    return ap->slot_concerns_self(slot);
+}
+
+
+
 void GodotAPClient::send_say(const String& text) {
-    if (ap) {
-        ap->Say(text.utf8().get_data());
-    }
+    if (!ap) { return; }
+    ap->Say(text.utf8().get_data());
 }
 
 
@@ -209,5 +291,23 @@ void GodotAPClient::send_location_checks(Array locations_array) {
         }
 
         ap->LocationChecks(locations_list);
+    }
+}
+
+
+
+void GodotAPClient::send_location_scouts(Array locations_array, int create_as_hint) {
+    // NOTE We don't use PoolIntArray due to that being limited to 32-bit int's, despite Godot's int type being 64 bits
+    if (ap) {
+        std::list<int64_t> locations_list;
+
+        for (int i = 0; i < locations_array.size(); i++) {
+            Variant location = locations_array[i];
+            if (location.get_type() == Variant::Type::INT) {
+                locations_list.push_back((int64_t)location);
+            }
+        }
+
+        ap->LocationScouts(locations_list, create_as_hint);
     }
 }
