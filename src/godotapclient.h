@@ -37,6 +37,9 @@ namespace godot {
         GodotAPClient();
         ~GodotAPClient();
 
+        inline godot::String std_to_godotstr(const std::string &input) const;
+        inline std::string godot_to_stdstr(const godot::String &input) const;
+
         void _init();
 
         void connect_to_host(String game, String url);

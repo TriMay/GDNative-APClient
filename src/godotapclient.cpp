@@ -1,5 +1,6 @@
 #include "godotapclient.h"
 #include "apclient.hpp"
+#include <iostream>
 
 using namespace godot;
 
@@ -57,6 +58,18 @@ GodotAPClient::~GodotAPClient() {
 }
 
 
+inline godot::String GodotAPClient::std_to_godotstr(const std::string &input) const {
+    const char * c_str = input.c_str();
+    return godot::String(c_str);
+}
+
+inline std::string GodotAPClient::godot_to_stdstr(const godot::String &input) const {
+    godot::CharString gdchar_str = input.utf8();
+    const char * c_str = gdchar_str.get_data();
+    return std::string(c_str);
+}
+
+
 
 void GodotAPClient::_init() {
     // initialize any variables here
@@ -65,8 +78,11 @@ void GodotAPClient::_init() {
 void GodotAPClient::connect_to_host(String game, String uri) {
     std::string uuid = "e321d079-0848-4f83-8694-dc5d9bf2f764"; // TODO FIXME
     // TODO use ap_get_uuid(file, host)
+    
+    std::string game_as_std = godot_to_stdstr(game);
+    std::string uri_as_std = godot_to_stdstr(uri);
 
-    ap.reset(new APClient(uuid, game.utf8().get_data(), uri.utf8().get_data()));
+    ap.reset(new APClient(uuid, game_as_std, uri_as_std));
 
     // set_socket_connected_handler
     ap->set_socket_connected_handler([this]() {
@@ -75,7 +91,7 @@ void GodotAPClient::connect_to_host(String game, String uri) {
 
     // set_socket_error_handler
     ap->set_socket_error_handler([this](const std::string& error) {
-        emit_signal("socket_error", error.data());
+        emit_signal("socket_error", std_to_godotstr(error));
     });
 
     // set_socket_disconnected_handler
@@ -89,7 +105,8 @@ void GodotAPClient::connect_to_host(String game, String uri) {
 
         // TODO FIXME I cannot be bothered to figure out APClient::json at 2:30AM but I know this quick fix is bad
         
-        godot::String json_str = godot::String(json_data.dump().data());
+        std::string json_dump = json_data.dump();
+        godot::String json_str = std_to_godotstr(json_dump);
         godot::Ref<godot::JSONParseResult> parse_result = godot::JSON::get_singleton()->parse(json_str);
         
         if (parse_result->get_error() == godot::Error::OK) {
@@ -107,9 +124,10 @@ void GodotAPClient::connect_to_host(String game, String uri) {
         std::list<std::string>::const_iterator iter = reasons_list.begin();
 
         for (int i = 0; i < reasons_list.size(); i++) {
-            std::string str = *iter;
+            std::string std_str = *iter;
+            String gd_str = std_to_godotstr(std_str);
 
-            reasons_array.append(godot::String(str.c_str()));
+            reasons_array.append(gd_str);
 
             ++iter;
         }
@@ -185,14 +203,17 @@ void GodotAPClient::connect_slot(const String& name, const String& password, int
         std::list<std::string> tags_list;
 
         for (int i = 0; i < tags.size(); i++) {
-            godot::String gd_string = tags.read()[i];
+            godot::String gd_str = tags.read()[i];
 
-            std::string cpp_string = gd_string.utf8().get_data();
+            std::string std_str = godot_to_stdstr(gd_str);
         
-            tags_list.push_back(cpp_string);
+            tags_list.push_back(std_str);
         }
 
-        ap->ConnectSlot(name.utf8().get_data(), password.utf8().get_data(), items_handling, tags_list);
+        std::string name_as_std = godot_to_stdstr(name);
+        std::string pass_as_std = godot_to_stdstr(password);
+
+        ap->ConnectSlot(name_as_std, pass_as_std, items_handling, tags_list);
     }
 }
 
@@ -208,8 +229,8 @@ void GodotAPClient::connect_slot(const String& name, const String& password, int
 String GodotAPClient::get_player_alias(int slot) {
     if (!ap) { return String("Unknown"); }
 
-    std::string result = ap->get_player_alias(slot);
-    return String(result.data());
+    std::string std_str = ap->get_player_alias(slot);
+    return std_to_godotstr(std_str);
 }
 
 
@@ -217,8 +238,8 @@ String GodotAPClient::get_player_alias(int slot) {
 const String GodotAPClient::get_player_game(int player) {
     if (!ap) { return String(""); }
 
-    std::string result = ap->get_player_game(player);
-    return String(result.data());
+    std::string std_str = ap->get_player_game(player);
+    return std_to_godotstr(std_str);
 }
 
 
@@ -226,8 +247,8 @@ const String GodotAPClient::get_player_game(int player) {
 const String GodotAPClient::get_game() {
     if (!ap) { return String(""); }
 
-    std::string result = ap->get_game();
-    return String(result.data());
+    std::string std_str = ap->get_game();
+    return std_to_godotstr(std_str);
 }
 
 
@@ -235,15 +256,16 @@ const String GodotAPClient::get_game() {
 String GodotAPClient::get_location_name(int64_t code, const String& game) {
     if (!ap) { return String("Unknown"); }
 
-    std::string result = ap->get_location_name(code, game.utf8().get_data());
-    return String(result.data());
+    std::string std_str = ap->get_location_name(code, godot_to_stdstr(game));
+    return std_to_godotstr(std_str);
 }
 
 
 
 int64_t GodotAPClient::get_location_id(const String& name) const {
     if (!ap) { return APClient::INVALID_NAME_ID; }
-    return ap->get_location_id(name.utf8().get_data());
+
+    return ap->get_location_id(godot_to_stdstr(name));
 }
 
 
@@ -251,15 +273,16 @@ int64_t GodotAPClient::get_location_id(const String& name) const {
 String GodotAPClient::get_item_name(int64_t code, const String& game) {
     if (!ap) { return String("Unknown"); }
 
-    std::string result = ap->get_item_name(code, game.utf8().get_data());
-    return String  //String(result.c_str());
+    std::string std_str = ap->get_item_name(code, godot_to_stdstr(game));
+    return std_to_godotstr(std_str);
 }
 
 
 
 int64_t GodotAPClient::get_item_id(const String& name) const {
     if (!ap) { return APClient::INVALID_NAME_ID; }
-    return ap->get_item_id(name.utf8().get_data());
+
+    return ap->get_item_id(godot_to_stdstr(name));
 }
 
 
@@ -273,7 +296,7 @@ bool GodotAPClient::slot_concerns_self(int slot) const {
 
 void GodotAPClient::send_say(const String& text) {
     if (!ap) { return; }
-    ap->Say(text.utf8().get_data());
+    ap->Say(godot_to_stdstr(text));
 }
 
 
